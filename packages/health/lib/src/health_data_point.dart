@@ -2,6 +2,7 @@ part of health;
 
 /// A [HealthDataPoint] object corresponds to a data point captures from GoogleFit or Apple HealthKit
 class HealthDataPoint {
+  String activityName;
   num _value;
   HealthDataType _type;
   HealthDataUnit _unit;
@@ -10,8 +11,9 @@ class HealthDataPoint {
   PlatformType _platform;
   String _deviceId;
 
-  HealthDataPoint._(this._value, this._type, this._unit, this._dateFrom,
-      this._dateTo, this._platform, this._deviceId) {
+  HealthDataPoint(this._value, this._type, this._unit, this._dateFrom,
+      this._dateTo, this._platform, this._deviceId,
+      {this.activityName = ""}) {
     /// Set the value to minutes rather than the category
     /// returned by the native API
     if (type == HealthDataType.MINDFULNESS ||
@@ -31,11 +33,12 @@ class HealthDataPoint {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = new Map<String, dynamic>();
     data['value'] = this.value;
-    data['unit'] = this.unit;
-    data['date_from'] = this.dateFrom;
-    data['date_to'] = this.dateTo;
-    data['data_type'] = this.type;
-    data['platform_type'] = this.platform;
+    data['unit'] = _enumToString(this.unit);
+    data['date_from'] = this.dateFrom.millisecondsSinceEpoch;
+    data['date_to'] = this.dateTo.millisecondsSinceEpoch;
+    data['data_type'] = _enumToString(this.type);
+    data['platform_type'] = _enumToString(this.platform);
+    data['activity_name'] = activityName;
     return data;
   }
 
@@ -46,7 +49,8 @@ class HealthDataPoint {
       'dateFrom: $dateFrom, '
       'dateTo: $dateTo, '
       'dataType: $type,'
-      'platform: $platform';
+      'platform: $platform,'
+      'activityName: $activityName';
 
   /// Get the quantity value of the data point
   num get value => _value;
@@ -87,6 +91,7 @@ class HealthDataPoint {
         this.dateTo == o.dateTo &&
         this.type == o.type &&
         this.platform == o.platform &&
+        this.activityName == o.activityName &&
         this.deviceId == o.deviceId;
   }
 

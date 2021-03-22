@@ -55,7 +55,7 @@ class HealthFactory {
     List<HealthDataPoint> bmiHealthPoints = [];
     for (int i = 0; i < weights.length; i++) {
       double bmiValue = weights[i].value.toDouble() / (h * h);
-      HealthDataPoint x = HealthDataPoint._(
+      HealthDataPoint x = HealthDataPoint(
           bmiValue,
           HealthDataType.BODY_MASS_INDEX,
           unit,
@@ -111,9 +111,9 @@ class HealthFactory {
       DateTime startDate, DateTime endDate, HealthDataType dataType) async {
     // Set parameters for method channel request
     Map<String, dynamic> args = {
-      'dataTypeKey': _enumToString(dataType),
-      'startDate': startDate.millisecondsSinceEpoch,
-      'endDate': endDate.millisecondsSinceEpoch
+      'data_type': _enumToString(dataType),
+      'date_from': startDate.millisecondsSinceEpoch,
+      'date_to': endDate.millisecondsSinceEpoch
     };
 
     List<HealthDataPoint> healthData = new List();
@@ -126,7 +126,7 @@ class HealthFactory {
           num value = e["value"];
           DateTime from = DateTime.fromMillisecondsSinceEpoch(e["date_from"]);
           DateTime to = DateTime.fromMillisecondsSinceEpoch(e["date_to"]);
-          return HealthDataPoint._(
+          return HealthDataPoint(
               value, dataType, unit, from, to, _platformType, _deviceId);
         }).toList();
       }
@@ -135,6 +135,26 @@ class HealthFactory {
       print("\t$error");
     }
     return healthData;
+  }
+
+  /// The main function for setting health data
+  Future<bool> saveDataQuery(List<HealthDataPoint> data) async {
+    try {
+      Map<dynamic, dynamic> saveResult = await _channel.invokeMethod(
+          'saveData', data.map((e) => e.toJson()).toList());
+      if (saveResult != null && saveResult["status"] == "Success") {
+        return true;
+      } else if (saveResult != null) {
+        print("Health Plugin Error:\n");
+        print("\t${saveResult["error"]}");
+      }
+      return false;
+    } catch (error) {
+      print("Health Plugin Error:\n");
+      print("\t$error");
+      return false;
+    }
+    return true;
   }
 
   /// Given an array of [HealthDataPoint]s, this method will return the array

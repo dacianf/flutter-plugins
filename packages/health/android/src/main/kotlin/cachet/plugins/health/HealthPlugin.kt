@@ -1,28 +1,34 @@
 package cachet.plugins.health
 
 import android.app.Activity
+import android.content.Intent
+import android.os.Handler
+import android.util.Log
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.fitness.Fitness
+import com.google.android.gms.fitness.FitnessActivities
 import com.google.android.gms.fitness.FitnessOptions
+import com.google.android.gms.fitness.data.*
 import com.google.android.gms.fitness.request.DataReadRequest
+import com.google.android.gms.fitness.request.SessionInsertRequest
 import com.google.android.gms.fitness.result.DataReadResponse
 import com.google.android.gms.tasks.Tasks
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugin.common.PluginRegistry.Registrar
-import android.content.Intent
-import android.os.Handler
-import android.util.Log
 import io.flutter.plugin.common.PluginRegistry.ActivityResultListener
+import io.flutter.plugin.common.PluginRegistry.Registrar
+import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
-import com.google.android.gms.fitness.data.*
+
 
 const val GOOGLE_FIT_PERMISSIONS_REQUEST_CODE = 1111
 
-class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodCallHandler, ActivityResultListener, Result {
+class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodCallHandler,
+        ActivityResultListener,
+        Result {
 
     private var result: Result? = null
     private var handler: Handler? = null
@@ -40,6 +46,7 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
     private var BLOOD_GLUCOSE = "BLOOD_GLUCOSE"
     private var MOVE_MINUTES = "MOVE_MINUTES"
     private var DISTANCE_DELTA = "DISTANCE_DELTA"
+    private var CYCLING = "cycling"
 
 
     companion object {
@@ -55,35 +62,36 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
 
     /// DataTypes to register
     private val fitnessOptions = FitnessOptions.builder()
-            .addDataType(keyToHealthDataType(BODY_FAT_PERCENTAGE), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(HEIGHT), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(WEIGHT), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(STEPS), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(ACTIVE_ENERGY_BURNED), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(HEART_RATE), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(BODY_TEMPERATURE), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(BLOOD_PRESSURE_SYSTOLIC), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(BLOOD_OXYGEN), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(BLOOD_GLUCOSE), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(MOVE_MINUTES), FitnessOptions.ACCESS_READ)
-            .addDataType(keyToHealthDataType(DISTANCE_DELTA), FitnessOptions.ACCESS_READ)
-            .build()
+        .addDataType(keyToHealthDataType(BODY_FAT_PERCENTAGE), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(HEIGHT), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(WEIGHT), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(STEPS), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(ACTIVE_ENERGY_BURNED), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(HEART_RATE), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(BODY_TEMPERATURE), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(BLOOD_PRESSURE_SYSTOLIC), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(BLOOD_OXYGEN), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(BLOOD_GLUCOSE), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(MOVE_MINUTES), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(DISTANCE_DELTA), FitnessOptions.ACCESS_READ)
+        .addDataType(keyToHealthDataType(CYCLING), FitnessOptions.ACCESS_READ)
+        .build()
 
 
     override fun success(p0: Any?) {
         handler?.post(
-                Runnable { result?.success(p0) })
+            Runnable { result?.success(p0) })
     }
 
     override fun notImplemented() {
         handler?.post(
-                Runnable { result?.notImplemented() })
+            Runnable { result?.notImplemented() })
     }
 
     override fun error(
             errorCode: String, errorMessage: String?, errorDetails: Any?) {
         handler?.post(
-                Runnable { result?.error(errorCode, errorMessage, errorDetails) })
+            Runnable { result?.error(errorCode, errorMessage, errorDetails) })
     }
 
 
@@ -92,7 +100,8 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
             if (resultCode == Activity.RESULT_OK) {
                 Log.d("FLUTTER_HEALTH", "Access Granted!")
                 mResult?.success(true)
-            } else if (resultCode == Activity.RESULT_CANCELED) {
+            }
+            else if (resultCode == Activity.RESULT_CANCELED) {
                 Log.d("FLUTTER_HEALTH", "Access Denied!")
                 mResult?.success(false);
             }
@@ -117,7 +126,8 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
             BLOOD_GLUCOSE -> HealthDataTypes.TYPE_BLOOD_GLUCOSE
             MOVE_MINUTES -> DataType.TYPE_MOVE_MINUTES
             DISTANCE_DELTA -> DataType.TYPE_DISTANCE_DELTA
-            else -> DataType.TYPE_STEP_COUNT_DELTA
+            CYCLING -> DataType.TYPE_DISTANCE_DELTA
+            else                     -> DataType.TYPE_STEP_COUNT_DELTA
         }
     }
 
@@ -136,20 +146,24 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
             BLOOD_GLUCOSE -> HealthFields.FIELD_BLOOD_GLUCOSE_LEVEL
             MOVE_MINUTES -> Field.FIELD_DURATION
             DISTANCE_DELTA -> Field.FIELD_DISTANCE
-            else -> Field.FIELD_PERCENTAGE
+            CYCLING -> Field.FIELD_DISTANCE
+            else                     -> Field.FIELD_PERCENTAGE
         }
     }
 
     /// Extracts the (numeric) value from a Health Data Point
     private fun getHealthDataValue(dataPoint: DataPoint, unit: Field): Any {
         return try {
-            dataPoint.getValue(unit).asFloat()
+            dataPoint.getValue(unit)
+                .asFloat()
         } catch (e1: Exception) {
             try {
-                dataPoint.getValue(unit).asInt()
+                dataPoint.getValue(unit)
+                    .asInt()
             } catch (e2: Exception) {
                 try {
-                    dataPoint.getValue(unit).asString()
+                    dataPoint.getValue(unit)
+                        .asString()
                 } catch (e3: Exception) {
                     Log.e("FLUTTER_HEALTH::ERROR", e3.toString())
                 }
@@ -159,9 +173,9 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
 
     /// Called when the "getHealthDataByType" is invoked from Flutter
     private fun getData(call: MethodCall, result: Result) {
-        val type = call.argument<String>("dataTypeKey")!!
-        val startTime = call.argument<Long>("startDate")!!
-        val endTime = call.argument<Long>("endDate")!!
+        val type = call.argument<String>("data_type")!!
+        val startTime = call.argument<Long>("date_from")!!
+        val endTime = call.argument<Long>("date_to")!!
 
         // Look up data type and unit for the type key
         val dataType = keyToHealthDataType(type)
@@ -170,31 +184,155 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
         /// Start a new thread for doing a GoogleFit data lookup
         thread {
             try {
-                val fitnessOptions = FitnessOptions.builder().addDataType(dataType).build()
-                val googleSignInAccount = GoogleSignIn.getAccountForExtension(activity.applicationContext, fitnessOptions)
-
-                val response = Fitness.getHistoryClient(activity.applicationContext, googleSignInAccount)
-                        .readData(DataReadRequest.Builder()
-                                .read(dataType)
-                                .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-                                .build())
-
-                /// Fetch all data points for the specified DataType
-                val dataPoints = Tasks.await<DataReadResponse>(response).getDataSet(dataType)
-
-                /// For each data point, extract the contents and send them to Flutter, along with date and unit.
-                val healthData = dataPoints.dataPoints.mapIndexed { _, dataPoint ->
-                    return@mapIndexed hashMapOf(
-                            "value" to getHealthDataValue(dataPoint, unit),
-                            "date_from" to dataPoint.getStartTime(TimeUnit.MILLISECONDS),
-                            "date_to" to dataPoint.getEndTime(TimeUnit.MILLISECONDS),
-                            "unit" to unit.toString()
-                    )
-
-                }
+                val healthData = if (type != CYCLING) getSensorData(dataType, startTime, endTime, unit)
+                else
+                    getCyclingData(startTime, endTime, unit)
                 activity.runOnUiThread { result.success(healthData) }
             } catch (e3: Exception) {
                 activity.runOnUiThread { result.success(null) }
+            }
+        }
+    }
+
+    private fun getSensorData(dataType: DataType, startTime: Long, endTime: Long, unit: Field): List<Map<String, Any>> {
+        val fitnessOptions = FitnessOptions.builder()
+            .addDataType(dataType)
+            .build()
+        val googleSignInAccount = GoogleSignIn.getAccountForExtension(activity.applicationContext, fitnessOptions)
+
+        val response = Fitness.getHistoryClient(activity.applicationContext, googleSignInAccount)
+            .readData(DataReadRequest.Builder()
+                          .read(dataType)
+                          .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                          .build())
+
+        /// Fetch all data points for the specified DataType
+        val dataPoints = Tasks.await<DataReadResponse>(response)
+            .getDataSet(dataType)
+
+        /// For each data point, extract the contents and send them to Flutter, along with date and unit.
+        return dataPoints.dataPoints.mapIndexed { _, dataPoint ->
+            return@mapIndexed hashMapOf(
+                "value" to getHealthDataValue(dataPoint, unit),
+                "date_from" to dataPoint.getStartTime(TimeUnit.MILLISECONDS),
+                "date_to" to dataPoint.getEndTime(TimeUnit.MILLISECONDS),
+                "unit" to unit.toString()
+            )
+
+        }
+    }
+
+    private fun getCyclingData(startTime: Long, endTime: Long, unit: Field): List<Map<String, Any>> {
+        val fitnessOptions = FitnessOptions.builder()
+            .addDataType(DataType.TYPE_DISTANCE_DELTA)
+            .addDataType(DataType.AGGREGATE_DISTANCE_DELTA)
+            .build()
+        val googleSignInAccount =
+            GoogleSignIn.getAccountForExtension(activity.applicationContext, fitnessOptions)
+        val response = Fitness.getHistoryClient(activity.applicationContext, googleSignInAccount)
+            .readData(DataReadRequest.Builder()
+                          .aggregate(DataType.AGGREGATE_DISTANCE_DELTA)
+                          .bucketBySession(1, TimeUnit.MINUTES)
+                          .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                          .enableServerQueries()
+                          .build())
+
+        /// Fetch all data points for the specified DataType
+        val buckets = Tasks.await<DataReadResponse>(response).buckets
+        val dataPoints = buckets.filter {
+            it.session?.activity?.toLowerCase(Locale.getDefault())
+                ?.contains(Regex(".*(bike|biking|cycling).*")) ?: false
+        }
+            .map {
+                it.getDataSet(DataType.TYPE_DISTANCE_DELTA)?.dataPoints
+            }
+            .fold(listOf<DataPoint>(), { o, n ->
+                listOf(*o.toTypedArray(), *(n?.toTypedArray() ?: arrayOf()))
+            })
+
+        /// For each data point, extract the contents and send them to Flutter, along with date and unit.
+        return dataPoints.mapIndexed { _, dataPoint ->
+            return@mapIndexed hashMapOf(
+                "value" to getHealthDataValue(dataPoint, unit),
+                "date_from" to dataPoint.getStartTime(TimeUnit.MILLISECONDS),
+                "date_to" to dataPoint.getEndTime(TimeUnit.MILLISECONDS),
+                "unit" to unit.toString()
+            )
+        }
+    }
+
+    private fun saveCyclingData(call: MethodCall, result: Result) {
+        try {
+            val fitnessOptions = FitnessOptions.builder()
+                .addDataType(DataType.TYPE_DISTANCE_DELTA, FitnessOptions.ACCESS_WRITE)
+                .addDataType(DataType.AGGREGATE_DISTANCE_DELTA, FitnessOptions.ACCESS_WRITE)
+                .build()
+            var dataSource: DataSource? = null
+            var dataSet: DataSet?
+            var startDate: Long = 0
+            var endDate: Long = 0
+            val dataPoints = call.arguments<List<Map<Any, Any>>>()
+                .map {
+                    if (dataSource == null) {
+                        dataSource = DataSource.Builder()
+                            .setAppPackageName(activity.packageName)
+                            .setDataType(DataType.TYPE_DISTANCE_DELTA)
+                            .setType(DataSource.TYPE_RAW)
+                            .setStreamName(it["activity_name"]?.toString() ?: "")
+                            .build()
+                    }
+                    startDate = it["date_from"] as Long
+                    endDate = it["date_to"] as Long
+                    DataPoint.builder(dataSource!!)
+                        .setFloatValues(it["value"]?.toString()
+                                            ?.toFloatOrNull() ?: 0f)
+                        .setTimeInterval(it["date_from"] as Long,
+                                         it["date_to"] as Long,
+                                         TimeUnit.MILLISECONDS
+                        )
+                        .build()
+                }
+            dataSource?.let { ds ->
+                dataSet = DataSet.builder(ds)
+                    .addAll(dataPoints)
+                    .build()
+                val session = Session.Builder()
+                    .setName("Testam testam")
+                    .setActivity(FitnessActivities.BIKING)
+                    .setIdentifier(activity.packageName)
+                    .setDescription("Testam description")
+                    .setStartTime(startDate, TimeUnit.MILLISECONDS)
+                    .setEndTime(endDate, TimeUnit.MILLISECONDS)
+                    .build()
+                val sessionReq = SessionInsertRequest.Builder()
+                    .addDataSet(dataSet)
+                    .setSession(session)
+                    .build()
+                val googleSignInAccount =
+                    GoogleSignIn.getAccountForExtension(activity.applicationContext, fitnessOptions)
+
+                Fitness.getSessionsClient(activity.applicationContext, googleSignInAccount)
+                    .insertSession(sessionReq)
+                    .addOnSuccessListener {
+                        println("MARE MUIE")
+                        activity.runOnUiThread {
+                            result.success(mapOf("status" to "Success"))
+                        }
+                    }
+                    .addOnFailureListener {
+                        activity.runOnUiThread {
+                            result.success(mapOf("status" to "Error", "error" to it.localizedMessage))
+                        }
+                    }
+                return
+            } ?: apply {
+                activity.runOnUiThread {
+                    result.success(mapOf("status" to "Error", "error" to "Error"))
+                }
+            }
+        } catch (err: Exception) {
+            activity.runOnUiThread {
+                result.success(mapOf("status" to "Error", "error" to err.localizedMessage))
             }
         }
     }
@@ -206,11 +344,12 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
         for (typeKey in types) {
             if (typeKey !is String) continue
             typesBuilder.addDataType(keyToHealthDataType(typeKey), FitnessOptions.ACCESS_READ)
+            typesBuilder.addDataType(keyToHealthDataType(typeKey), FitnessOptions.ACCESS_WRITE)
         }
         return typesBuilder.build()
     }
 
-    /// Called when the "requestAuthorization" is invoked from Flutter 
+    /// Called when the "requestAuthorization" is invoked from Flutter
     private fun requestAuthorization(call: MethodCall, result: Result) {
         val optionsToRegister = callToHealthTypes(call)
         mResult = result
@@ -220,10 +359,10 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
         /// Not granted? Ask for permission
         if (!isGranted) {
             GoogleSignIn.requestPermissions(
-                    activity,
-                    GOOGLE_FIT_PERMISSIONS_REQUEST_CODE,
-                    GoogleSignIn.getLastSignedInAccount(activity),
-                    optionsToRegister)
+                activity,
+                GOOGLE_FIT_PERMISSIONS_REQUEST_CODE,
+                GoogleSignIn.getLastSignedInAccount(activity),
+                optionsToRegister)
         }
         /// Permission already granted
         else {
@@ -236,7 +375,8 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
         when (call.method) {
             "requestAuthorization" -> requestAuthorization(call, result)
             "getData" -> getData(call, result)
-            else -> result.notImplemented()
+            "saveData" -> saveCyclingData(call, result)
+            else                   -> result.notImplemented()
         }
     }
 }

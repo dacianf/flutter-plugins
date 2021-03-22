@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 
 void main() => runApp(MyApp());
@@ -20,16 +22,57 @@ enum AppState {
 class _MyAppState extends State<MyApp> {
   List<HealthDataPoint> _healthDataList = [];
   AppState _state = AppState.DATA_NOT_FETCHED;
+  Random _random = Random.secure();
 
   @override
   void initState() {
     super.initState();
   }
 
+  Future saveRandomCyclingData() async {
+    DateTime randomData =
+        DateTime.now().subtract(Duration(days: _random.nextInt(60)));
+    HealthFactory health = HealthFactory();
+    List<HealthDataType> types = [
+      HealthDataType.CYCLING,
+    ];
+
+    List<HealthDataPoint> data = [
+      HealthDataPoint(
+          _random.nextInt(999990),
+          types.first,
+          HealthDataUnit.METERS,
+          DateTime(randomData.year, randomData.month, randomData.day, 13),
+          DateTime(randomData.year, randomData.month, randomData.day, 15),
+          PlatformType.IOS,
+          "",
+          activityName: "Radbonus cycling")
+    ];
+    print("We will save: $data");
+
+    /// You MUST request access to the data types before reading them
+    bool accessWasGranted = await health.requestAuthorization(types);
+
+    if (accessWasGranted) {
+      try {
+        bool saveResult =
+            await health.saveDataQuery(HealthFactory.removeDuplicates(data));
+        if (saveResult) {
+          print("SAVED: $data");
+        }
+      } catch (e) {
+        print("Caught exception in getHealthDataFromTypes: $e");
+      }
+    } else {
+      print("Authorization not granted");
+      setState(() => _state = AppState.DATA_NOT_FETCHED);
+    }
+  }
+
   Future<void> fetchData() async {
     /// Get everything from midnight until now
-    DateTime startDate = DateTime(2020, 11,   07, 0,  0,  0);
-    DateTime endDate = DateTime(2020,   11,   07, 23, 59, 59);
+    DateTime startDate = DateTime(2020, 11, 07, 0, 0, 0);
+    DateTime endDate = DateTime.now();
 
     HealthFactory health = HealthFactory();
 
@@ -39,7 +82,7 @@ class _MyAppState extends State<MyApp> {
       HealthDataType.WEIGHT,
       HealthDataType.HEIGHT,
       HealthDataType.BLOOD_GLUCOSE,
-      HealthDataType.DISTANCE_WALKING_RUNNING,
+      HealthDataType.CYCLING,
     ];
 
     setState(() => _state = AppState.FETCHING_DATA);
@@ -47,7 +90,7 @@ class _MyAppState extends State<MyApp> {
     /// You MUST request access to the data types before reading them
     bool accessWasGranted = await health.requestAuthorization(types);
 
-    int steps = 0;
+    num steps = 0;
 
     if (accessWasGranted) {
       try {
@@ -67,7 +110,7 @@ class _MyAppState extends State<MyApp> {
       /// Print the results
       _healthDataList.forEach((x) {
         print("Data point: $x");
-        steps += (x.value as int);
+        steps += x.value;
       });
 
       print("Steps: $steps");
@@ -153,7 +196,21 @@ class _MyAppState extends State<MyApp> {
             ],
           ),
           body: Center(
-            child: _content(),
+            child: Column(
+              children: [
+                RaisedButton(
+                  child: Text("Add cycling data"),
+                  onPressed: () {
+                    saveRandomCyclingData();
+                  },
+                ),
+                Container(
+                  height: 2,
+                  color: Colors.black26,
+                ),
+                Expanded(child: _content()),
+              ],
+            ),
           )),
     );
   }
