@@ -109,10 +109,16 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         let dateTo = Date(timeIntervalSince1970: endDate.doubleValue / 1000)
 
         let dataType = dataTypeLookUp(key: dataTypeKey)
-        let predicate = HKQuery.predicateForSamples(withStart: dateFrom, end: dateTo, options: .strictStartDate)
+        
+        let predicateData = HKQuery.predicateForSamples(withStart: dateFrom, end: dateTo, options: .strictStartDate)
+        
+        // Only allows data which was not enter manually by the user
+        let predicateOnlyRecordedData = NSPredicate(format: "metadata.%K != YES", HKMetadataKeyWasUserEntered)
+        
+        let compundPredicate = NSCompoundPredicate(type: .and, subpredicates: [predicateData,predicateOnlyRecordedData])
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: true)
         
-        let query = HKSampleQuery(sampleType: dataType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) {
+        let query = HKSampleQuery(sampleType: dataType, predicate: compundPredicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) {
             x, samplesOrNil, error in
 
             guard let samples = samplesOrNil as? [HKQuantitySample] else {
@@ -285,6 +291,7 @@ struct HealthData {
                                       start: dateFrom,
                                       end: dateTo)
     }
+    
 }
 
 
