@@ -103,6 +103,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         let dataTypeKey = (arguments?["data_type"] as? String) ?? "DEFAULT"
         let startDate = (arguments?["date_from"] as? NSNumber) ?? 0
         let endDate = (arguments?["date_to"] as? NSNumber) ?? 0
+        let minimumRequestedValue = (arguments?["minimum_requested_value"] as? NSNumber) ?? 0
 
         // Convert dates from milliseconds to Date()
         let dateFrom = Date(timeIntervalSince1970: startDate.doubleValue / 1000)
@@ -115,7 +116,16 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         // Only allows data which was not enter manually by the user
         let predicateOnlyRecordedData = NSPredicate(format: "metadata.%K != YES", HKMetadataKeyWasUserEntered)
         
-        let compundPredicate = NSCompoundPredicate(type: .and, subpredicates: [predicateData,predicateOnlyRecordedData])
+        var compundPredicate : NSCompoundPredicate;
+        if(dataTypeKey == CYCLING){
+            // Only allows data which was not enter manually by the user
+            let minimDistance = HKQuantity(unit: HKUnit.meter(), doubleValue: Double(truncating: minimumRequestedValue))
+            let predicateOnlyRecordedData = HKQuery.predicateForQuantitySamples(with: NSComparisonPredicate.Operator.greaterThanOrEqualTo, quantity: minimDistance)
+            compundPredicate = NSCompoundPredicate(type: .and, subpredicates: [predicateData,predicateOnlyRecordedData, predicateOnlyRecordedData])
+        }else{
+            compundPredicate = NSCompoundPredicate(type: .and, subpredicates: [predicateData,predicateOnlyRecordedData])
+        }
+        
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: true)
         
         let query = HKSampleQuery(sampleType: dataType, predicate: compundPredicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sortDescriptor]) {

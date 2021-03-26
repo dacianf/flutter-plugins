@@ -77,18 +77,19 @@ class _MyAppState extends State<MyApp> {
     HealthFactory health = HealthFactory();
 
     /// Define the types to get.
-    List<HealthDataType> types = [
-      HealthDataType.STEPS,
-      HealthDataType.WEIGHT,
-      HealthDataType.HEIGHT,
-      HealthDataType.BLOOD_GLUCOSE,
-      HealthDataType.CYCLING,
+    List<HealthDataQuery> types = [
+      HealthDataQuery(HealthDataType.STEPS),
+      HealthDataQuery(HealthDataType.WEIGHT),
+      HealthDataQuery(HealthDataType.HEIGHT),
+      HealthDataQuery(HealthDataType.BLOOD_GLUCOSE),
+      HealthDataQuery(HealthDataType.CYCLING),
     ];
 
     setState(() => _state = AppState.FETCHING_DATA);
 
     /// You MUST request access to the data types before reading them
-    bool accessWasGranted = await health.requestAuthorization(types);
+    bool accessWasGranted = await health
+        .requestAuthorization(types.map((e) => e.dataType).toList());
 
     num steps = 0;
 

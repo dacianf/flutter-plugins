@@ -128,3 +128,10 @@ const Map<HealthDataType, HealthDataUnit> _dataTypeToUnit = {
 
   HealthDataType.CYCLING: HealthDataUnit.METERS,
 };
+
+class HealthDataQuery {
+  final HealthDataType dataType;
+  final int minimumValue;
+
+  HealthDataQuery(this.dataType, [this.minimumValue]);
+}

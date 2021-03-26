@@ -71,12 +71,13 @@ class HealthFactory {
 
   /// Get an array of [HealthDataPoint] from an array of [HealthDataType]
   Future<List<HealthDataPoint>> getHealthDataFromTypes(
-      DateTime startDate, DateTime endDate, List<HealthDataType> types) async {
+      DateTime startDate, DateTime endDate, List<HealthDataQuery> types) async {
     List<HealthDataPoint> dataPoints = [];
 
-    for (HealthDataType type in types) {
-      List<HealthDataPoint> result =
-          await _prepareQuery(startDate, endDate, type);
+    for (HealthDataQuery query in types) {
+      List<HealthDataPoint> result = await _prepareQuery(
+          startDate, endDate, query.dataType,
+          minimumValueQuery: query.minimumValue);
       dataPoints.addAll(result);
     }
     return removeDuplicates(dataPoints);
@@ -84,7 +85,8 @@ class HealthFactory {
 
   /// Prepares a query, i.e. checks if the types are available, etc.
   Future<List<HealthDataPoint>> _prepareQuery(
-      DateTime startDate, DateTime endDate, HealthDataType dataType) async {
+      DateTime startDate, DateTime endDate, HealthDataType dataType,
+      {int minimumValueQuery}) async {
     /// Ask for device ID only once
     if (_deviceId == null) {
       _deviceId = _platformType == PlatformType.ANDROID
@@ -103,18 +105,22 @@ class HealthFactory {
         _platformType == PlatformType.ANDROID) {
       return _computeAndroidBMI(startDate, endDate);
     }
-    return await _dataQuery(startDate, endDate, dataType);
+    return await _dataQuery(startDate, endDate, dataType, minimumValueQuery);
   }
 
   /// The main function for fetching health data
   Future<List<HealthDataPoint>> _dataQuery(
-      DateTime startDate, DateTime endDate, HealthDataType dataType) async {
+      DateTime startDate, DateTime endDate, HealthDataType dataType,
+      [int minimumValueQuery]) async {
     // Set parameters for method channel request
     Map<String, dynamic> args = {
       'data_type': _enumToString(dataType),
       'date_from': startDate.millisecondsSinceEpoch,
       'date_to': endDate.millisecondsSinceEpoch
     };
+    if (minimumValueQuery != null) {
+      args['minimum_requested_value'] = minimumValueQuery;
+    }
 
     List<HealthDataPoint> healthData = new List();
     HealthDataUnit unit = _dataTypeToUnit[dataType];
@@ -127,7 +133,8 @@ class HealthFactory {
           DateTime from = DateTime.fromMillisecondsSinceEpoch(e["date_from"]);
           DateTime to = DateTime.fromMillisecondsSinceEpoch(e["date_to"]);
           return HealthDataPoint(
-              value, dataType, unit, from, to, _platformType, _deviceId);
+              value, dataType, unit, from, to, _platformType, _deviceId,
+              minimumValue: minimumValueQuery);
         }).toList();
       }
     } catch (error) {

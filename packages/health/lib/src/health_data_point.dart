@@ -3,6 +3,7 @@ part of health;
 /// A [HealthDataPoint] object corresponds to a data point captures from GoogleFit or Apple HealthKit
 class HealthDataPoint {
   String activityName;
+  int minimumValue;
   num _value;
   HealthDataType _type;
   HealthDataUnit _unit;
@@ -13,7 +14,7 @@ class HealthDataPoint {
 
   HealthDataPoint(this._value, this._type, this._unit, this._dateFrom,
       this._dateTo, this._platform, this._deviceId,
-      {this.activityName = ""}) {
+      {this.activityName = "", this.minimumValue = 0}) {
     /// Set the value to minutes rather than the category
     /// returned by the native API
     if (type == HealthDataType.MINDFULNESS ||
@@ -39,6 +40,7 @@ class HealthDataPoint {
     data['data_type'] = _enumToString(this.type);
     data['platform_type'] = _enumToString(this.platform);
     data['activity_name'] = activityName;
+    data['minimum_requested_value'] = minimumValue;
     return data;
   }
 
@@ -50,6 +52,7 @@ class HealthDataPoint {
       'dateTo: $dateTo, '
       'dataType: $type,'
       'platform: $platform,'
+      'minimumRequestedValue: $minimumValue, '
       'activityName: $activityName';
 
   /// Get the quantity value of the data point
@@ -92,6 +95,7 @@ class HealthDataPoint {
         this.type == o.type &&
         this.platform == o.platform &&
         this.activityName == o.activityName &&
+        this.minimumValue == o.minimumValue &&
         this.deviceId == o.deviceId;
   }
 
