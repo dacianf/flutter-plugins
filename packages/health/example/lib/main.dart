@@ -39,14 +39,15 @@ class _MyAppState extends State<MyApp> {
 
     List<HealthDataPoint> data = [
       HealthDataPoint(
-          _random.nextInt(999990),
-          types.first,
-          HealthDataUnit.METERS,
-          DateTime(randomData.year, randomData.month, randomData.day, 13),
-          DateTime(randomData.year, randomData.month, randomData.day, 15),
-          PlatformType.IOS,
-          "",
-          activityName: "Radbonus cycling")
+        _random.nextInt(999990),
+        types.first,
+        HealthDataUnit.METERS,
+        DateTime(randomData.year, randomData.month, randomData.day, 13),
+        DateTime(randomData.year, randomData.month, randomData.day, 15),
+        PlatformType.IOS,
+        "",
+        activityName: "Health Plugin",
+      )
     ];
     print("We will save: $data");
 

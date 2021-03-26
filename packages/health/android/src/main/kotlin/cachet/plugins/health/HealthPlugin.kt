@@ -46,7 +46,7 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
     private var BLOOD_GLUCOSE = "BLOOD_GLUCOSE"
     private var MOVE_MINUTES = "MOVE_MINUTES"
     private var DISTANCE_DELTA = "DISTANCE_DELTA"
-    private var CYCLING = "cycling"
+    private var CYCLING = "CYCLING"
 
 
     companion object {
@@ -267,12 +267,14 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
                 .addDataType(DataType.TYPE_DISTANCE_DELTA, FitnessOptions.ACCESS_WRITE)
                 .addDataType(DataType.AGGREGATE_DISTANCE_DELTA, FitnessOptions.ACCESS_WRITE)
                 .build()
+            lateinit var activityName: String
             var dataSource: DataSource? = null
             var dataSet: DataSet?
             var startDate: Long = 0
             var endDate: Long = 0
             val dataPoints = call.arguments<List<Map<Any, Any>>>()
                 .map {
+                    activityName = it["activity_name"]?.toString() ?: ""
                     if (dataSource == null) {
                         dataSource = DataSource.Builder()
                             .setAppPackageName(activity.packageName)
@@ -284,8 +286,9 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
                     startDate = it["date_from"] as Long
                     endDate = it["date_to"] as Long
                     DataPoint.builder(dataSource!!)
-                        .setFloatValues(it["value"]?.toString()
-                                            ?.toFloatOrNull() ?: 0f)
+                        .setField(Field.FIELD_DISTANCE,
+                                  it["value"]?.toString()
+                                      ?.toFloatOrNull() ?: 0f)
                         .setTimeInterval(it["date_from"] as Long,
                                          it["date_to"] as Long,
                                          TimeUnit.MILLISECONDS
@@ -297,16 +300,16 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
                     .addAll(dataPoints)
                     .build()
                 val session = Session.Builder()
-                    .setName("Testam testam")
+                    .setName(activityName)
                     .setActivity(FitnessActivities.BIKING)
                     .setIdentifier(activity.packageName)
-                    .setDescription("Testam description")
+                    .setDescription(activityName)
                     .setStartTime(startDate, TimeUnit.MILLISECONDS)
                     .setEndTime(endDate, TimeUnit.MILLISECONDS)
                     .build()
                 val sessionReq = SessionInsertRequest.Builder()
-                    .addDataSet(dataSet)
                     .setSession(session)
+                    .addDataSet(dataSet!!)
                     .build()
                 val googleSignInAccount =
                     GoogleSignIn.getAccountForExtension(activity.applicationContext, fitnessOptions)
@@ -314,7 +317,6 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
                 Fitness.getSessionsClient(activity.applicationContext, googleSignInAccount)
                     .insertSession(sessionReq)
                     .addOnSuccessListener {
-                        println("MARE MUIE")
                         activity.runOnUiThread {
                             result.success(mapOf("status" to "Success"))
                         }
