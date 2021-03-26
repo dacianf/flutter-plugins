@@ -83,7 +83,7 @@ class _MyAppState extends State<MyApp> {
       HealthDataQuery(HealthDataType.WEIGHT),
       HealthDataQuery(HealthDataType.HEIGHT),
       HealthDataQuery(HealthDataType.BLOOD_GLUCOSE),
-      HealthDataQuery(HealthDataType.CYCLING),
+      HealthDataQuery(HealthDataType.CYCLING, 500),
     ];
 
     setState(() => _state = AppState.FETCHING_DATA);

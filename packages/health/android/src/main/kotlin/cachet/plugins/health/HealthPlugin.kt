@@ -176,6 +176,7 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
         val type = call.argument<String>("data_type")!!
         val startTime = call.argument<Long>("date_from")!!
         val endTime = call.argument<Long>("date_to")!!
+        val minimumValueQuery = call.argument<Int>("minimum_requested_value")!!
 
         // Look up data type and unit for the type key
         val dataType = keyToHealthDataType(type)
@@ -186,7 +187,7 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
             try {
                 val healthData = if (type != CYCLING) getSensorData(dataType, startTime, endTime, unit)
                 else
-                    getCyclingData(startTime, endTime, unit)
+                    getCyclingData(startTime, endTime, unit, minimumValueQuery)
                 activity.runOnUiThread { result.success(healthData) }
             } catch (e3: Exception) {
                 activity.runOnUiThread { result.success(null) }
@@ -222,7 +223,8 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
         }
     }
 
-    private fun getCyclingData(startTime: Long, endTime: Long, unit: Field): List<Map<String, Any>> {
+    private fun getCyclingData(startTime: Long, endTime: Long, unit: Field, minimumDistanceQuery: Int):
+            List<Map<String, Any>> {
         val fitnessOptions = FitnessOptions.builder()
             .addDataType(DataType.TYPE_DISTANCE_DELTA)
             .addDataType(DataType.AGGREGATE_DISTANCE_DELTA)
@@ -249,6 +251,11 @@ class HealthPlugin(val activity: Activity, val channel: MethodChannel) : MethodC
             .fold(listOf<DataPoint>(), { o, n ->
                 listOf(*o.toTypedArray(), *(n?.toTypedArray() ?: arrayOf()))
             })
+            .filter {
+                (getHealthDataValue(it, unit).toString()
+                    .toFloatOrNull()
+                    ?.compareTo(minimumDistanceQuery.toFloat()) ?: -1) >= 0
+            }
 
         /// For each data point, extract the contents and send them to Flutter, along with date and unit.
         return dataPoints.mapIndexed { _, dataPoint ->
