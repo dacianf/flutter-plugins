@@ -130,8 +130,19 @@ class HealthFactory {
       if (fetchedDataPoints != null) {
         healthData = fetchedDataPoints.map((e) {
           num value = e["value"];
-          DateTime from = DateTime.fromMillisecondsSinceEpoch(e["date_from"]);
-          DateTime to = DateTime.fromMillisecondsSinceEpoch(e["date_to"]);
+          DateTime from;
+          if (e["date_from"] != null) {
+            from = DateTime.fromMillisecondsSinceEpoch(e["date_from"]) ??
+                DateTime.now();
+          } else {
+            from = DateTime.now();
+          }
+          DateTime to;
+          if (e["date_to"] != null) {
+            to = DateTime.fromMillisecondsSinceEpoch(e["date_to"]) ?? from;
+          } else {
+            to = from;
+          }
           return HealthDataPoint(
               value, dataType, unit, from, to, _platformType, _deviceId,
               minimumValue: minimumValueQuery);
